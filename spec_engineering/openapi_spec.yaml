@@ -1,0 +1,658 @@
+# Spec-Driven Engineering: OpenAPI Specification
+# ===============================================
+# OpenAPI 3.0 specification for NetVelocity TCP Control Channel
+# Defines REST API for session management and telemetry retrieval
+
+openapi: 3.0.3
+
+info:
+  title: NetVelocity Control Channel API
+  description: |
+    TCP-based control channel for UDP transfer acceleration.
+    Provides session management, telemetry retrieval, and rate control.
+  version: 1.0.0
+  contact:
+    name: NetVelocity Engineering
+    email: engineering@netvelocity.io
+
+servers:
+  - url: tcp://localhost:8080
+    description: Local development server
+  - url: tcp://{host}:{port}
+    description: Production server
+    variables:
+      host:
+        default: localhost
+        description: Server hostname
+      port:
+        default: "8080"
+        description: Server port
+
+# ============================================================================
+# SECURITY SCHEMES
+# ============================================================================
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Session-Token
+
+  schemas:
+    # ========================================================================
+    # DATA MODELS
+    # ========================================================================
+    
+    Session:
+      type: object
+      required:
+        - session_id
+        - status
+      properties:
+        session_id:
+          type: string
+          format: uuid
+          description: Unique session identifier
+        status:
+          $ref: '#/components/schemas/SessionStatus'
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        client_info:
+          $ref: '#/components/schemas/ClientInfo'
+        statistics:
+          $ref: '#/components/schemas/SessionStatistics'
+    
+    SessionStatus:
+      type: string
+      enum:
+        - PENDING
+        - ACTIVE
+        - IDLE
+        - CLOSING
+        - CLOSED
+        - ERROR
+    
+    ClientInfo:
+      type: object
+      properties:
+        client_type:
+          type: string
+          enum: [python, java, go, rust, node]
+        protocol_version:
+          type: integer
+        capabilities:
+          type: array
+          items:
+            type: string
+        remote_address:
+          type: string
+    
+    SessionStatistics:
+      type: object
+      properties:
+        packets_sent:
+          type: integer
+          format: int64
+        packets_received:
+          type: integer
+          format: int64
+        packets_lost:
+          type: integer
+          format: int64
+        bytes_transferred:
+          type: integer
+          format: int64
+        average_latency_ms:
+          type: number
+          format: double
+        current_throughput_mbps:
+          type: number
+          format: double
+    
+    TelemetryReport:
+      type: object
+      required:
+        - session_id
+        - timestamp
+      properties:
+        report_id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+        metrics:
+          $ref: '#/components/schemas/NetworkMetrics'
+        system:
+          $ref: '#/components/schemas/SystemMetrics'
+    
+    NetworkMetrics:
+      type: object
+      properties:
+        packet_loss_rate:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 100
+        latency_avg_ms:
+          type: number
+          format: double
+        latency_p50_ms:
+          type: number
+          format: double
+        latency_p99_ms:
+          type: number
+          format: double
+        throughput_mbps:
+          type: number
+          format: double
+        jitter_ms:
+          type: number
+          format: double
+        retransmits:
+          type: integer
+          format: int64
+    
+    SystemMetrics:
+      type: object
+      properties:
+        cpu_usage_percent:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 100
+        memory_usage_percent:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 100
+        network_io_bytes:
+          type: integer
+          format: int64
+    
+    RateControlIntent:
+      type: object
+      required:
+        - intent_type
+      properties:
+        intent_type:
+          type: string
+          enum:
+            - MAXIMIZE_THROUGHPUT
+            - MINIMIZE_LATENCY
+            - BALANCED
+            - CUSTOM
+        target_packet_loss_percent:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 100
+        target_latency_ms:
+          type: number
+          format: double
+        target_throughput_mbps:
+          type: number
+          format: double
+        priority_weights:
+          $ref: '#/components/schemas/PriorityWeights'
+    
+    PriorityWeights:
+      type: object
+      properties:
+        throughput:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+        latency:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+        reliability:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+    
+    RateControlCommand:
+      type: object
+      required:
+        - command_id
+        - session_id
+      properties:
+        command_id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        target_rate_mbps:
+          type: number
+          format: double
+        window_size:
+          type: integer
+        flags:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+    
+    InferenceRequest:
+      type: object
+      required:
+        - request_id
+        - context
+        - intent
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+        context:
+          $ref: '#/components/schemas/InferenceContext'
+        intent:
+          $ref: '#/components/schemas/RateControlIntent'
+    
+    InferenceContext:
+      type: object
+      properties:
+        window_size_seconds:
+          type: integer
+        cpu_avg:
+          type: number
+          format: double
+        cpu_max:
+          type: number
+          format: double
+        memory_avg:
+          type: number
+          format: double
+        packet_loss_rate:
+          type: number
+          format: double
+        latency_avg_ms:
+          type: number
+          format: double
+        latency_max_ms:
+          type: number
+          format: double
+        throughput_avg_mbps:
+          type: number
+          format: double
+        packets_lost_total:
+          type: integer
+        packets_sent_total:
+          type: integer
+        routing_change_count:
+          type: integer
+    
+    InferenceResponse:
+      type: object
+      required:
+        - request_id
+        - recommended_rate_mbps
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+        recommended_rate_mbps:
+          type: number
+          format: double
+        recommended_window_size:
+          type: integer
+        confidence_score:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+        alternatives:
+          type: array
+          items:
+            $ref: '#/components/schemas/RateOption'
+        model_version:
+          type: string
+        inference_time_ms:
+          type: integer
+    
+    RateOption:
+      type: object
+      properties:
+        rate_mbps:
+          type: number
+          format: double
+        window_size:
+          type: integer
+        expected_loss_rate:
+          type: number
+          format: double
+        expected_latency_ms:
+          type: number
+          format: double
+        utility_score:
+          type: number
+          format: double
+    
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        details:
+          type: object
+
+# ============================================================================
+# API PATHS
+# ============================================================================
+
+paths:
+  # ========================================================================
+  # SESSION MANAGEMENT
+  # ========================================================================
+  
+  /api/v1/sessions:
+    post:
+      summary: Create new transfer session
+      operationId: createSession
+      tags:
+        - Session Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - client_type
+                - protocol_version
+              properties:
+                client_type:
+                  type: string
+                  enum: [python, java, go, rust, node]
+                protocol_version:
+                  type: integer
+                capabilities:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Session created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Server unavailable
+
+    get:
+      summary: List all active sessions
+      operationId: listSessions
+      tags:
+        - Session Management
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ACTIVE, IDLE, CLOSING]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Session'
+
+  /api/v1/sessions/{session_id}:
+    get:
+      summary: Get session details
+      operationId: getSession
+      tags:
+        - Session Management
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Session details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '404':
+          description: Session not found
+
+    delete:
+      summary: Close session
+      operationId: closeSession
+      tags:
+        - Session Management
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  enum: [CLIENT_REQUEST, TIMEOUT, ERROR]
+      responses:
+        '200':
+          description: Session closed
+        '404':
+          description: Session not found
+
+  # ========================================================================
+  # TELEMETRY
+  # ========================================================================
+  
+  /api/v1/sessions/{session_id}/telemetry:
+    get:
+      summary: Get current telemetry for session
+      operationId: getTelemetry
+      tags:
+        - Telemetry
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: window_seconds
+          in: query
+          schema:
+            type: integer
+            default: 60
+      responses:
+        '200':
+          description: Telemetry report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelemetryReport'
+        '404':
+          description: Session not found
+
+  /api/v1/sessions/{session_id}/telemetry/history:
+    get:
+      summary: Get telemetry history
+      operationId: getTelemetryHistory
+      tags:
+        - Telemetry
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: start_time
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: end_time
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: List of telemetry reports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TelemetryReport'
+
+  # ========================================================================
+  # RATE CONTROL
+  # ========================================================================
+  
+  /api/v1/sessions/{session_id}/intent:
+    put:
+      summary: Update rate control intent
+      operationId: updateIntent
+      tags:
+        - Rate Control
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RateControlIntent'
+      responses:
+        '200':
+          description: Intent updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateControlCommand'
+        '400':
+          description: Invalid intent
+
+  /api/v1/sessions/{session_id}/rate:
+    get:
+      summary: Get current rate control settings
+      operationId: getRateControl
+      tags:
+        - Rate Control
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Current rate control settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateControlCommand'
+
+  # ========================================================================
+  # AI INFERENCE
+  # ========================================================================
+  
+  /api/v1/inference:
+    post:
+      summary: Request AI inference for rate optimization
+      operationId: requestInference
+      tags:
+        - AI Inference
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InferenceRequest'
+      responses:
+        '200':
+          description: Inference result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InferenceResponse'
+        '400':
+          description: Invalid request
+        '503':
+          description: Model unavailable
