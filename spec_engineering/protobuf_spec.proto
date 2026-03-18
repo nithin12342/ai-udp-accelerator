@@ -1,0 +1,262 @@
+// Spec-Driven Engineering: Protocol Buffer Specifications
+// ========================================================
+// Machine-readable contract defining UDP packet structures
+// for NetVelocity AI rate-controller.
+//
+// This spec defines exactly how data is serialized across
+// Python sender and Java receiver, ensuring perfect
+// cross-language compatibility.
+//
+// Usage:
+//   protoc --python_out=. --java_out=. protobuf_spec.proto
+
+syntax = "proto3";
+
+package netvelocity;
+
+option python_package = "netvelocity.pb";
+option java_package = "com.netvelocity.proto";
+option go_package = "github.com/netvelocity/pb";
+
+// ============================================================================
+// UDP PAYLOAD PACKETS
+// ============================================================================
+
+// Data packet for UDP transfer
+// Max size: 1472 bytes (leaving room for IP/UDP headers)
+message UDPDataPacket {
+    // Packet header
+    uint32 sequence_number = 1;       // 4 bytes - Packet sequence ID
+    uint32 timestamp = 2;              // 4 bytes - Send timestamp (Unix epoch ms)
+    uint32 chunk_id = 3;               // 4 bytes - Multi-packet chunk ID
+    
+    // Payload info
+    uint32 payload_size = 4;           // 4 bytes - Actual payload size
+    uint32 total_packets = 5;          // 4 bytes - Total packets in chunk
+    uint32 packet_index = 6;           // 4 bytes - Index within chunk
+    
+    // Checksum
+    uint32 crc32_checksum = 7;         // 4 bytes - CRC32 of payload
+    
+    // Payload (variable, up to ~1400 bytes)
+    bytes payload = 8;
+    
+    // Total fixed overhead: 32 bytes + variable payload
+}
+
+// ============================================================================
+// CONTROL CHANNEL PACKETS (TCP)
+// ============================================================================
+
+// NACK (Negative Acknowledgment) packet
+// Total size: 16 bytes fixed
+message NACKPacket {
+    // First 4 bytes: Sequence number
+    uint32 sequence_number = 1;        // 4 bytes - Missing sequence number
+    
+    // Next 4 bytes: Timestamp of detection
+    uint32 detection_timestamp = 2;    // 4 bytes - When gap detected
+    
+    // Next 4 bytes: Number of consecutive missing packets
+    uint32 missing_count = 3;          // 4 bytes - How many packets missing
+    
+    // Next 4 bytes: Priority level (1=low, 5=critical)
+    uint32 priority = 4;              // 4 bytes - Urgency level
+    
+    // Total: 16 bytes fixed
+}
+
+// ACK (Acknowledgment) packet
+// Total size: 12 bytes fixed
+message ACKPacket {
+    uint32 sequence_number = 1;       // 4 bytes - Highest received sequence
+    uint32 timestamp = 2;              // 4 bytes - ACK timestamp
+    uint32 cumulative_ack = 3;          // 4 bytes - Cumulative ACK flag
+    
+    // Total: 12 bytes fixed
+}
+
+// Rate control command from AI controller
+// Total size: 20 bytes fixed
+message RateControlCommand {
+    uint32 command_id = 1;             // 4 bytes - Unique command ID
+    uint32 target_rate_mbps = 2;        // 4 bytes - Target rate in Mbps
+    uint32 window_size = 3;             // 4 bytes - Sliding window size
+    uint32 timestamp = 4;              // 4 bytes - Command timestamp
+    uint32 flags = 5;                   // 4 bytes - Command flags
+    
+    // Total: 20 bytes fixed
+}
+
+// ============================================================================
+// TELEMETRY & STATE MESSAGES
+// ============================================================================
+
+// Telemetry data from receiver to sender
+// Variable size depending on measurement count
+message TelemetryReport {
+    uint32 report_id = 1;              // Unique report ID
+    uint32 timestamp = 2;              // Report timestamp
+    
+    // Network metrics
+    repeated PacketLossRecord loss_records = 3;
+    repeated LatencyRecord latency_records = 4;
+    repeated BandwidthRecord bandwidth_records = 5;
+    
+    // System metrics
+    double cpu_usage_percent = 6;
+    double memory_usage_percent = 7;
+    uint32 active_connections = 8;
+    
+    // Summary
+    uint32 total_packets_received = 9;
+    uint32 total_packets_lost = 10;
+    double average_latency_ms = 11;
+    double average_throughput_mbps = 12;
+}
+
+// Individual packet loss record
+message PacketLossRecord {
+    uint32 start_sequence = 1;
+    uint32 end_sequence = 2;
+    uint32 loss_count = 3;
+    uint32 timestamp = 4;
+}
+
+// Individual latency measurement
+message LatencyRecord {
+    uint32 sequence_number = 1;
+    uint32 send_timestamp = 2;
+    uint32 receive_timestamp = 3;
+    uint32 latency_ms = 4;
+}
+
+// Bandwidth measurement
+message BandwidthRecord {
+    uint32 measurement_window_ms = 1;
+    uint32 bytes_transferred = 2;
+    double throughput_mbps = 3;
+    uint32 timestamp = 4;
+}
+
+// ============================================================================
+// SESSION MANAGEMENT
+// ============================================================================
+
+// Session initialization request
+message SessionInitRequest {
+    string session_id = 1;              // UUID string
+    uint32 client_version = 2;         // Protocol version
+    uint32 capabilities = 3;           // Client capabilities flags
+    string client_type = 4;             // "python", "java", "go", etc.
+    uint32 timestamp = 5;               // Request timestamp
+}
+
+// Session initialization response
+message SessionInitResponse {
+    string session_id = 1;              // UUID string (echoed)
+    uint32 server_version = 2;         // Protocol version accepted
+    uint32 assigned_session_token = 3; // Session token for auth
+    SessionStatus status = 4;          // ACCEPTED, REJECTED, UPGRADE_REQUIRED
+    string message = 5;                 // Status message
+    uint32 timestamp = 6;               // Response timestamp
+}
+
+// Session status enumeration
+enum SessionStatus {
+    SESSION_STATUS_UNSPECIFIED = 0;
+    SESSION_STATUS_ACCEPTED = 1;
+    SESSION_STATUS_REJECTED = 2;
+    SESSION_STATUS_UPGRADE_REQUIRED = 3;
+    SESSION_STATUS_EXPIRED = 4;
+}
+
+// Session teardown message
+message SessionTeardown {
+    string session_id = 1;
+    SessionTeardownReason reason = 2;
+    uint32 final_packet_count = 3;
+    uint32 total_bytes_transferred = 4;
+    uint32 timestamp = 5;
+}
+
+enum SessionTeardownReason {
+    TEARDOWN_UNSPECIFIED = 0;
+    TEARDOWN_CLIENT_REQUEST = 1;
+    TEARDOWN_SERVER_SHUTDOWN = 2;
+    TEARDOWN_TIMEOUT = 3;
+    TEARDOWN_PROTOCOL_ERROR = 4;
+}
+
+// ============================================================================
+// AI MODEL INFERENCE
+// ============================================================================
+
+// Inference request from rate controller
+message InferenceRequest {
+    uint32 request_id = 1;             // Unique inference request ID
+    uint32 timestamp = 2;              // Request timestamp
+    
+    // Context features
+    ContextFeatures context = 3;
+    
+    // Intent from Intent Engineering
+    IntentSpec intent = 4;
+}
+
+// Context features for ML model
+message ContextFeatures {
+    uint32 window_size_seconds = 1;
+    
+    // CPU/Memory
+    double cpu_avg = 2;
+    double cpu_max = 3;
+    double memory_avg = 4;
+    
+    // Network
+    double packet_loss_rate = 5;
+    double latency_avg_ms = 6;
+    double latency_max_ms = 7;
+    double throughput_avg_mbps = 8;
+    uint32 packets_lost_total = 9;
+    uint32 packets_sent_total = 10;
+    
+    // Routing
+    uint32 routing_change_count = 11;
+}
+
+// Intent specification from Intent Engineering
+message IntentSpec {
+    string intent_type = 1;            // "MAXIMIZE_THROUGHPUT", "MINIMIZE_LATENCY", "BALANCED"
+    double target_packet_loss_percent = 2;
+    double target_latency_ms = 3;
+    double target_throughput_mbps = 4;
+    uint32 priority_weight = 5;         // Weight for optimization
+}
+
+// Inference response from ML model
+message InferenceResponse {
+    uint32 request_id = 1;             // Echoed request ID
+    uint32 timestamp = 2;              // Response timestamp
+    
+    // Recommended actions
+    uint32 recommended_rate_mbps = 3;
+    uint32 recommended_window_size = 4;
+    double confidence_score = 5;
+    
+    // Alternative options
+    repeated RateOption alternatives = 6;
+    
+    // Model metadata
+    string model_version = 7;
+    uint32 inference_time_ms = 8;
+}
+
+// Alternative rate option
+message RateOption {
+    uint32 rate_mbps = 1;
+    uint32 window_size = 2;
+    double expected_loss_rate = 3;
+    double expected_latency_ms = 4;
+    double utility_score = 5;
+}
