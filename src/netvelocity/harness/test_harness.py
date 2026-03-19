@@ -49,6 +49,24 @@ class NetworkScenario(Enum):
     CONGESTED = "congested"            # Bandwidth limitation
     SATELLITE = "satellite"            # High latency + high loss
     FAILURE_RECOVERY = "failure"       # Network partitions
+    # Global distance-aware scenarios (max 40,000 km Earth)
+    GLOBAL_ANTIPODES = "global_antipodes"     # 40,000 km (max Earth distance)
+    CONTINENTAL = "continental"                # ~10,000 km
+    REGIONAL = "regional"                       # ~1,000 km
+    # Multi-speed tier scenarios
+    SPEED_1GB = "speed_1gb"                   # 1 Gbps connection
+    SPEED_10GB = "speed_10gb"                 # 10 Gbps connection
+    SPEED_100GB = "speed_100gb"               # 100 Gbps connection
+    # Encrypted high-speed scenarios
+    ENCRYPTED_10GB = "encrypted_10gb"         # 10 Gbps with strong encryption
+    ENCRYPTED_100GB = "encrypted_100gb"        # 100 Gbps with strong encryption
+
+
+class ConnectionSpeed(Enum):
+    """Connection speeds for multi-gigabit transfers."""
+    SPEED_1GBPS = 1000      # 1 Gbps in Mbps
+    SPEED_10GBPS = 10000    # 10 Gbps in Mbps
+    SPEED_100GBPS = 100000 # 100 Gbps in Mbps
 
 
 @dataclass
@@ -61,6 +79,11 @@ class NetworkConfig:
     reorder_percent: float = 0.0
     duplicate_percent: float = 0.0
     corruption_percent: float = 0.0
+    # New global distance and speed fields
+    distance_km: float = 0.0              # Transfer distance
+    connection_speed: ConnectionSpeed = ConnectionSpeed.SPEED_10GBPS
+    encryption_enabled: bool = False
+    encryption_overhead_percent: float = 0.0  # TLS/AES overhead
 
 
 @dataclass

@@ -21,7 +21,23 @@ from datetime import datetime, timedelta
 from collections import deque
 import json
 
-from .intent_spec import IntentSpec, IntentType, IntentTemplates
+from .intent_spec import IntentSpec, IntentType, IntentTemplates, ConnectionSpeedTier, EncryptionLevel
+
+
+# Speed tier bandwidth limits in Mbps
+SPEED_TIER_LIMITS = {
+    ConnectionSpeedTier.TIER_1GBPS: 1000,
+    ConnectionSpeedTier.TIER_10GBPS: 10000,
+    ConnectionSpeedTier.TIER_100GBPS: 100000,
+}
+
+# Encryption overhead percentages
+ENCRYPTION_OVERHEAD = {
+    EncryptionLevel.NONE: 0.0,
+    EncryptionLevel.STANDARD: 0.02,    # 2% overhead
+    EncryptionLevel.STRONG: 0.05,       # 5% overhead (TLS 1.3 + AES-256-GCM)
+    EncryptionLevel.POST_QUANTUM: 0.08, # 8% overhead
+}
 
 
 @dataclass
@@ -29,12 +45,18 @@ class RateAction:
     """Rate control action to apply."""
     rate_mbps: float
     window_size: int
+    speed_tier: ConnectionSpeedTier = ConnectionSpeedTier.TIER_10GBPS
+    encryption_level: EncryptionLevel = EncryptionLevel.STRONG
+    distance_km: float = 0.0  # Transfer distance
     timestamp: float = field(default_factory=time.time)
     
     def to_dict(self) -> Dict[str, Any]:
         return {
             "rate_mbps": self.rate_mbps,
             "window_size": self.window_size,
+            "speed_tier": self.speed_tier.value,
+            "encryption_level": self.encryption_level.value,
+            "distance_km": self.distance_km,
             "timestamp": self.timestamp
         }
 
@@ -62,9 +84,21 @@ class Experience:
 class RateControllerConfig:
     """Configuration for the rate controller."""
     min_rate_mbps: float = 1.0
-    max_rate_mbps: float = 10000.0
+    max_rate_mbps: float = 100000.0  # Up to 100 Gbps
     min_window_size: int = 1
-    max_window_size: int = 1000
+    max_window_size: int = 10000    # Larger window for high speed
+    
+    # Speed tier settings
+    default_speed_tier: ConnectionSpeedTier = ConnectionSpeedTier.TIER_10GBPS
+    auto_speed_detection: bool = True
+    
+    # Encryption settings
+    encryption_level: EncryptionLevel = EncryptionLevel.STRONG
+    enable_encryption: bool = True
+    
+    # Distance-aware settings
+    max_distance_km: float = 40000.0  # Earth antipodes
+    enable_geo_routing: bool = True
     
     # RL parameters
     learning_rate: float = 0.1
@@ -76,8 +110,12 @@ class RateControllerConfig:
     history_size: int = 1000
     
     # Safety
-    max_rate_change_mbps: float = 500.0
+    max_rate_change_mbps: float = 5000.0  # Allow larger changes for 100G
     emergency_rate_reduction: float = 0.5
+    
+    # Performance targets
+    target_latency_ms: float = 150.0
+    target_packet_loss_percent: float = 0.5
 
 
 class IntentController:

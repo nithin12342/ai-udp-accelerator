@@ -30,17 +30,41 @@ This document outlines a comprehensive plan to simulate UDP data transfer and tr
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 1.2 Network Scenarios to Simulate
+### 1.2 Global Distance-Aware Network Scenarios (Max 40,000 km)
 
-| Scenario | Latency (ms) | Loss (%) | Jitter (ms) | Bandwidth (Mbps) |
-|----------|-------------|----------|-------------|------------------|
-| Ideal    | 0           | 0        | 0           | ∞                |
-| LAN      | 1           | 0        | 1           | 1000             |
-| Transatlantic | 200   | 2        | 20          | 100              |
-| High Loss | 50         | 7        | 10          | 50               |
-| Satellite | 600        | 5        | 50          | 20               |
-| Variable  | 100±80     | 3        | 80          | 100              |
-| Congested | 150        | 5        | 30          | 10               |
+| Scenario | Distance (km) | Latency (ms) | Loss (%) | Jitter (ms) | Bandwidth |
+|----------|---------------|--------------|----------|-------------|-----------|
+| Local    | 0             | 1            | 0        | 1           | ∞         |
+| Regional | 1,000         | 15           | 0.1      | 5           | 10-100 Gbps |
+| Continental | 10,000    | 50           | 0.5      | 10          | 10-100 Gbps |
+| Transcontinental | 20,000 | 100          | 1.0      | 15          | 10-100 Gbps |
+| Global Antipodes | 40,000 | 200          | 2.0      | 20          | 1-100 Gbps |
+
+### 1.3 Multi-Speed Tier Scenarios
+
+| Tier | Bandwidth | Typical Use Case | Latency Impact |
+|------|-----------|------------------|----------------|
+| 1 Gbps | 1,000 Mbps | Enterprise | +5ms |
+| 10 Gbps | 10,000 Mbps | Data Centers | +2ms |
+| 100 Gbps | 100,000 Mbps | Backbone | +1ms |
+
+### 1.4 Encryption Overhead Scenarios
+
+| Level | Protocol | Encryption | Overhead | Security |
+|-------|----------|------------|----------|----------|
+| None | Plain | - | 0% | ✗ |
+| Standard | TLS 1.2 | AES-128 | 2% | Basic |
+| Strong | TLS 1.3 | AES-256-GCM | 5% | High |
+| Post-Quantum | TLS 1.3 + Kyber | AES-256 | 8% | Quantum-resistant |
+
+### 1.5 Combined Scenarios (for training)
+
+| Scenario | Distance | Speed Tier | Encryption | Target Latency |
+|----------|----------|------------|------------|----------------|
+| Enterprise Secure | 1,000 km | 1 Gbps | Strong | < 50ms |
+| Data Center Replica | 10,000 km | 10 Gbps | Strong | < 100ms |
+| Global Backup | 40,000 km | 100 Gbps | Standard | < 200ms |
+| Satellite Link | 40,000 km | 1 Gbps | Post-Quantum | < 600ms |
 
 ---
 
@@ -60,6 +84,14 @@ class TransferSample:
     memory_usage_percent: float
     queue_depth: int
     routing_changes: int
+    
+    # Global Distance-Aware Features (NEW)
+    distance_km: float = 0.0              # Transfer distance (0-40000 km)
+    speed_tier: int = 2                   # 1=1Gbps, 2=10Gbps, 3=100Gbps
+    
+    # Encryption Features (NEW)
+    encryption_level: int = 2              # 0=none, 1=standard, 2=strong, 3=post-quantum
+    encryption_overhead_percent: float = 0.05
     
     # Current Configuration
     current_rate_mbps: float

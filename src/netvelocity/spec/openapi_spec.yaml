@@ -656,3 +656,161 @@ paths:
           description: Invalid request
         '503':
           description: Model unavailable
+
+  # ========================================================================
+  # ENCRYPTION & SPEED CONTROL (New for Global Multi-Gigabit Support)
+  # ========================================================================
+  
+  /api/v1/sessions/{session_id}/encryption:
+    put:
+      summary: Configure encryption level for session
+      operationId: configureEncryption
+      tags:
+        - Encryption
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - encryption_level
+              properties:
+                encryption_level:
+                  type: string
+                  enum: [none, standard, strong, post_quantum]
+                  description: Encryption level (strong = TLS 1.3 + AES-256-GCM)
+                key_rotation_interval_seconds:
+                  type: integer
+                  default: 3600
+      responses:
+        '200':
+          description: Encryption configured
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  encryption_enabled:
+                    type: boolean
+                  overhead_percent:
+                    type: number
+
+  /api/v1/sessions/{session_id}/speed:
+    put:
+      summary: Configure connection speed tier
+      operationId: configureSpeedTier
+      tags:
+        - Speed Control
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - speed_tier
+              properties:
+                speed_tier:
+                  type: string
+                  enum: [1gbps, 10gbps, 100gbps]
+                  description: Connection speed tier
+                auto_detect:
+                  type: boolean
+                  default: true
+                  description: Auto-detect optimal speed
+      responses:
+        '200':
+          description: Speed tier configured
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  speed_tier:
+                    type: string
+                  max_rate_mbps:
+                    type: number
+
+  /api/v1/sessions/{session_id}/geo-route:
+    put:
+      summary: Configure global routing with distance awareness
+      operationId: configureGeoRouting
+      tags:
+        - Geo Routing
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - destination
+              properties:
+                destination:
+                  type: object
+                  properties:
+                    latitude:
+                      type: number
+                    longitude:
+                      type: number
+                    city:
+                      type: string
+                    country:
+                      type: string
+                max_distance_km:
+                  type: integer
+                  default: 40000
+                  description: Maximum transfer distance (default: Earth antipodes)
+                enable_geo_routing:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: Geo routing configured
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  distance_km:
+                    type: integer
+                  estimated_latency_ms:
+                    type: number
+                  optimal_path:
+                    type: array
+                    items:
+                      type: string

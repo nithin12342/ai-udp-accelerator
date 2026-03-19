@@ -22,28 +22,47 @@
 
 ## Architecture Overview
 
-The NetVelocity system is built on four core engineering principles:
+The NetVelocity system is built on six core engineering principles:
 
-### 1. Telemetry & State Management
+### 1. Global Earth-to-Earth Connectivity
+- **Maximum Distance:** 40,000 km (equator-to-antipode)
+- **Distance-Based Latency:** ~133ms minimum (speed of light in fiber)
+- **Geo-Routing:** Intelligent multi-path routing across continents
+- **Edge Points of Presence:** Global PoP network for optimal path selection
+
+### 2. Multi-Speed Connection Support
+- **1 Gbps Tier:** Standard enterprise connections
+- **10 Gbps Tier:** High-performance data centers
+- **100 Gbps Tier:** Ultra-high-speed backbone transfers
+- **Auto-Bandwidth Detection:** Automatic speed negotiation and adaptation
+
+### 3. Strong Encryption
+- **TLS 1.3:** Latest transport layer security
+- **AES-256-GCM:** Military-grade packet encryption
+- **Post-Quantum Ready:** Lattice-based key exchange preparation
+- **Hardware Security Module (HSM) Integration:** Secure key management
+- **End-to-End Encryption:** All data encrypted in transit
+
+### 4. Telemetry & State Management
 - **Sliding Window:** 60-second rolling telemetry window
-- **Metrics:** CPU, memory, packet loss, latency, throughput, routing changes
+- **Metrics:** CPU, memory, packet loss, latency, throughput, routing changes, encryption overhead
 - **Storage:** Redis-backed with in-memory fallback
 
-### 2. Protocol Specifications  
+### 5. Protocol Specifications  
 - **Serialization:** Protocol Buffers for cross-language compatibility
-- **NACK Packet:** Exactly 16 bytes fixed size
-- **ACK Packet:** Exactly 12 bytes fixed size
-- **Control Channel:** TCP REST API (OpenAPI 3.0)
+- **NACK Packet:** Exactly 16 bytes fixed size (plus 32 bytes encrypted wrapper)
+- **ACK Packet:** Exactly 12 bytes fixed size (plus 32 bytes encrypted wrapper)
+- **Control Channel:** TCP REST API (OpenAPI 3.0) with TLS
 
-### 3. Test Environment
+### 6. Test Environment
 - **Containerization:** Docker Compose
 - **Network Simulation:** Linux tc (traffic control)
-- **Scenarios:** Local, Transatlantic (200ms/2% loss), High Loss (7%), Variable, Congested, Satellite, Failure Recovery
+- **Scenarios:** Local, Transcontinental (40000km), Continental (10000km), Regional (1000km), High Loss (7%), Variable, Congested, Satellite, Failure Recovery
 
-### 4. Autonomous Control
-- **Intent Types:** MAXIMIZE_THROUGHPUT, MINIMIZE_LATENCY, BALANCED, RELIABLE
-- **Constraints:** Hard limits (e.g., packet_loss < 1%)
-- **Optimization:** RL-based autonomous parameter tuning
+### 7. Autonomous Control
+- **Intent Types:** MAXIMIZE_THROUGHPUT, MINIMIZE_LATENCY, BALANCED, RELIABLE, ENCRYPTED_MAX_SPEED
+- **Constraints:** Hard limits (e.g., packet_loss < 1%, latency < 200ms)
+- **Optimization:** RL-based autonomous parameter tuning with speed tier awareness
 
 ---
 

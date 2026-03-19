@@ -33,6 +33,30 @@ class IntentType(Enum):
     CUSTOM = "CUSTOM"
     MAINTAIN_CURRENT = "MAINTAIN_CURRENT"
     ENERGY_EFFICIENT = "ENERGY_EFFICIENT"
+    # Multi-speed tier intents
+    ENCRYPTED_MAX_SPEED = "ENCRYPTED_MAX_SPEED"  # Max speed with strong encryption
+    SPEED_TIER_1GB = "SPEED_TIER_1GB"              # 1 Gbps connection
+    SPEED_TIER_10GB = "SPEED_TIER_10GB"           # 10 Gbps connection
+    SPEED_TIER_100GB = "SPEED_TIER_100GB"         # 100 Gbps connection
+    # Distance-aware intents
+    GLOBAL_LONG_DISTANCE = "GLOBAL_LONG_DISTANCE"  # 40,000 km max (Earth antipodes)
+    CONTINENTAL = "CONTINENTAL"                      # ~10,000 km
+    REGIONAL = "REGIONAL"                            # ~1,000 km
+
+
+class ConnectionSpeedTier(Enum):
+    """Connection speed tiers for multi-gigabit transfers."""
+    TIER_1GBPS = "1gbps"      # Standard enterprise (1 Gbps)
+    TIER_10GBPS = "10gbps"    # High-performance (10 Gbps)
+    TIER_100GBPS = "100gbps"  # Ultra-high-speed (100 Gbps)
+
+
+class EncryptionLevel(Enum):
+    """Encryption levels for data protection."""
+    NONE = "none"
+    STANDARD = "standard"       # TLS 1.2 + AES-128
+    STRONG = "strong"           # TLS 1.3 + AES-256-GCM
+    POST_QUANTUM = "post_quantum"  # Lattice-based key exchange
 
 
 class ConstraintOperator(Enum):

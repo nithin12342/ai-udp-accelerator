@@ -24,6 +24,7 @@ option go_package = "github.com/netvelocity/pb";
 
 // Data packet for UDP transfer
 // Max size: 1472 bytes (leaving room for IP/UDP headers)
+// With encryption: adds 32-48 bytes overhead for AES-256-GCM
 message UDPDataPacket {
     // Packet header
     uint32 sequence_number = 1;       // 4 bytes - Packet sequence ID
@@ -38,11 +39,21 @@ message UDPDataPacket {
     // Checksum
     uint32 crc32_checksum = 7;         // 4 bytes - CRC32 of payload
     
-    // Payload (variable, up to ~1400 bytes)
+    // Payload (variable, up to ~1400 bytes unencrypted)
     bytes payload = 8;
     
-    // Total fixed overhead: 32 bytes + variable payload
-}
+    // Encryption metadata (for TLS 1.3 + AES-256-GCM)
+    bool encrypted = 9;                 // 1 byte - Is payload encrypted
+    uint32 encryption_version = 10;     // 4 bytes - Encryption protocol version
+    bytes iv_nonce = 11;               // 12 bytes - Initialization vector / Nonce
+    bytes auth_tag = 12;               // 16 bytes - Authentication tag (GCM)
+    uint32 key_id = 13;                 // 4 bytes - Key rotation identifier
+    
+    // Global routing metadata
+    uint32 distance_km = 14;           // 4 bytes - Transfer distance (0-40000)
+    uint32 speed_tier = 15;            // 4 bytes - Speed tier (1=1G, 2=10G, 3=100G)
+    
+    // Total fixed overhead: ~70 bytes + variable payload (encrypted)
 
 // ============================================================================
 // CONTROL CHANNEL PACKETS (TCP)
